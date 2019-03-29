@@ -39,8 +39,8 @@ impl Motti {
         let vert_shader = compile_shader(
             &context,
             WebGl2RenderingContext::VERTEX_SHADER,
-            r#"#version 300 es
-            in vec4 position;
+            r#"
+            attribute vec4 position;
             void main() {
                 gl_Position = position;
             }
