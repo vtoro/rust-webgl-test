@@ -21,7 +21,7 @@ features = [
   'Performance',
   'HtmlCanvasElement',
   'WebGlBuffer',
-  'WebGl2RenderingContext',
+  'WebGlRenderingContext',
   'WebGlUniformLocation',
   'WebGlProgram',
   'WebGlShader',

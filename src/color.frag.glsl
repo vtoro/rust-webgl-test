@@ -1,13 +1,8 @@
-precision mediump float;
+#version 100
+precision highp float;
 
 uniform vec3 iResolution;
 uniform float iTime;
-
-
-
-precision highp float;
-
-
 const int max_steps = 64;
 const float max_depth = 200000000.0;
 const float min_distance = 0.01;
@@ -45,16 +40,16 @@ sdf worldsdfs(int i) {
         return sdf( 1, vec3( 0.0, 0.0, 0.0 ), vec3( 0.1, 0.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ) );
     }
     if( i == 1 ) {
-        return sdf( 101, vec3( -2.8, -2.0, -2.3 ), vec3( 2.6, 0.0, 0.0 ), vec3( 1.0, 1.0, 0.5 ) );
+        return sdf( 101, vec3( -2.8, -2.0, -2.3 + sin(iTime*0.6) * 3.0 ), vec3( 2.6, 0.0, 0.0 ), vec3( 1.0, 1.0, 0.5 ) );
     }
     if( i == 2 ) {
-        return sdf( 100, vec3( 0.5, 1.0, 0.0 ), vec3( 0.4, 0.0, 0.0 ), vec3( 0.5, 1.0, 0.5 ) );
+        return sdf( 100, vec3( 0.5 + sin( iTime * 0.7 ), 1.0, 0.0 ), vec3( 0.4, 0.0, 0.0 ), vec3( 0.5, 1.0, 0.5 ) );
     }
     if( i == 3 ) {
-        return sdf( 1, vec3(-3.0, 1.0, 1.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 0.0, 0.0, 1.0 ) );
+        return sdf( 1, vec3(-3.0, 1.0*cos(iTime*0.8)*1.0, 1.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 0.0, 0.0, 1.0 ) );
     }
     if( i == 4 ) {
-        return sdf( 0, vec3(2.0, 1.0,-3.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) );  
+        return sdf( 0, vec3(-5.0, .0,-3.0 ), vec3( 1.0, 0,0  ), vec3( 1.0, abs(sin( iTime * .6)), 1.0 ) );  
     }
     if( i == 5 ) {
         return sdf( 2, vec3( 0.0,-3.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) );
@@ -156,21 +151,29 @@ vec3 colorize( hit h ) {
         }
     }
     return color;
-
 }
 
-bool sun_trace( hit h ) {
-    ray r = ray( sun_dir, h.hit_position, 0.0, h.hit_object );
+float sun_trace( hit h ) {
+    float occlusion = 1.0;
+    ray r = ray( h.hit_position, sun_dir, 0.0, h.hit_object );
     r = rayfwd( r, min_distance * 4.0 );
     for( int i=0; i < max_steps; i++) {
-        if( r.length > max_depth ) return false;
+        if( r.length > max_depth ) return occlusion;
         hit c_obj = world( r );
         if( c_obj.distance < min_distance) {
-            return true;
+            sdf hit_object = worldsdfs( c_obj.hit_object );
+            if( hit_object.type < 100 ) {
+            	return 0.0;
+            } else {
+                r = ray( r.position, r.direction, r.length, c_obj.hit_object );
+                vec3 c = colorize( c_obj );
+                occlusion = occlusion * sqrt( 0.299*c.x*c.x + 0.587*c.y*c.y + 0.114*c.z*c.z );
+                c_obj = world( r );
+            }
         } 
-        r = rayfwd( r, max(c_obj.distance,min_distance) );
+        r = rayfwd( r, c_obj.distance );
     }
-    return false;
+    return occlusion;
 }
 
 vec4 trace( ray r ) {
@@ -181,25 +184,21 @@ vec4 trace( ray r ) {
         hit c_obj = world( r );
         if( c_obj.distance < min_distance || c_obj.distance < min_distance*10.0 && i > max_steps - 2 ) {
             float brightness;
-            bool shadow = false;//sun_trace( c_obj );
-            if( !shadow ) {
-                vec3 nrml = normal( c_obj );
+            float shadow = max( 0.2, sun_trace( c_obj ) );
+            vec3 nrml = normal( c_obj );
 
-                float lambertian = max(dot(sun_dir,nrml), 0.0);
-                float specular = 0.0;
+            float lambertian = max(dot(sun_dir,nrml), 0.0);
+            float specular = 0.0;
 
-                if(lambertian > 0.0) {
-                    vec3 halfDir = normalize(sun_dir - r.direction);
-                    float specAngle = max(dot(halfDir, nrml), 0.0);
-                    specular = specAngle * specAngle * specAngle * specAngle;
-                    specular = specular * specular * specular * specular;
-                    specular = specular * specular * specular * specular;
-
-                }
-                brightness = min( 0.2+lambertian*0.8  + specular*0.8, 1.0);
-            } else {
-                brightness = 0.2;
+            if(lambertian > 0.0) {
+                vec3 halfDir = normalize(sun_dir - r.direction);
+                float specAngle = max(dot(halfDir, nrml), 0.0);
+                specular = specAngle * specAngle * specAngle * specAngle;
+                specular = specular * specular * specular * specular;
+                specular = specular * specular * specular * specular;
             }
+            brightness = shadow * min( lambertian*0.8  + specular*0.8, 1.0);
+                
             if( worldsdfs(c_obj.hit_object).type >= 100 ) {
                 r = refraction( r, c_obj );
                	refractionTint = refractionTint * colorize( c_obj ).xyz * brightness;
@@ -228,7 +227,7 @@ void main()
 {
     vec2 fragPos = (gl_FragCoord.xy / iResolution.xy - 0.5);//fragCoord.xy / vec2(1000.0,1000.0)) -0.5;
     //fragColor = vec4(1.0, fragPos.x, sin(iTime), 1.0);
-    vec3 camera = vec3( sin(iTime)*3.0+4.0, sin(iTime)*4.0+4.0, cos(iTime)*1.0 );
+    vec3 camera = vec3( sin(iTime)*3.0+4.0, sin(iTime)*5.0+5.0, cos(iTime)*1.0 );
     vec3 lookat = vec3(0, 0, 0);
     vec3 viewdir = viewdirection( fragPos, camera,lookat, vec3(0.0,1.0,0.0) );
     ray pixelray = ray( camera, viewdir, 0.0, -1);
