@@ -167,7 +167,7 @@ float sun_trace( hit h ) {
             } else {
                 r = ray( r.position, r.direction, r.length, c_obj.hit_object );
                 vec3 c = colorize( c_obj );
-                occlusion = occlusion * sqrt( 0.299*c.x*c.x + 0.587*c.y*c.y + 0.114*c.z*c.z );
+                occlusion = occlusion * ( 0.299*c.x + 0.587*c.y + 0.114*c.z );
                 c_obj = world( r );
             }
         } 
