@@ -7,7 +7,7 @@ use js_sys::WebAssembly;
 use web_sys::console;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use web_sys::{WebGlProgram, WebGlRenderingContext, WebGlShader, HtmlCanvasElement};
+use web_sys::{WebGlProgram, WebGl2RenderingContext, WebGlShader, HtmlCanvasElement};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -18,7 +18,7 @@ extern {
 
 pub struct Motti {
     program: WebGlProgram,
-    context: WebGlRenderingContext,
+    context: WebGl2RenderingContext,
     canvas: HtmlCanvasElement,
     count: i32,
     lastCountTime: f64,
@@ -32,15 +32,15 @@ impl Motti {
         let canvas: web_sys::HtmlCanvasElement = canvas.dyn_into::<web_sys::HtmlCanvasElement>()?;
 
         let context = canvas
-            .get_context("webgl")?
+            .get_context("webgl2")?
             .unwrap()
-            .dyn_into::<WebGlRenderingContext>()?;
+            .dyn_into::<WebGl2RenderingContext>()?;
 
         let vert_shader = compile_shader(
             &context,
-            WebGlRenderingContext::VERTEX_SHADER,
-            r#"#version 100
-            attribute vec4 position;
+            WebGl2RenderingContext::VERTEX_SHADER,
+            r#"#version 300 es
+            in vec4 position;
             void main() {
                 gl_Position = position;
             }
@@ -48,7 +48,7 @@ impl Motti {
         )?;
         let frag_shader = compile_shader(
             &context,
-            WebGlRenderingContext::FRAGMENT_SHADER,
+            WebGl2RenderingContext::FRAGMENT_SHADER,
             include_str!("color.frag.glsl"),
         )?;
         let program = link_program(&context, [vert_shader, frag_shader].iter())?;
@@ -63,17 +63,17 @@ impl Motti {
             .subarray(vertices_location, vertices_location + vertices.len() as u32);
 
         let buffer = context.create_buffer().ok_or("failed to create buffer")?;
-        context.bind_buffer(WebGlRenderingContext::ARRAY_BUFFER, Some(&buffer));
+        context.bind_buffer(WebGl2RenderingContext::ARRAY_BUFFER, Some(&buffer));
         context.buffer_data_with_array_buffer_view(
-            WebGlRenderingContext::ARRAY_BUFFER,
+            WebGl2RenderingContext::ARRAY_BUFFER,
             &vert_array,
-            WebGlRenderingContext::STATIC_DRAW,
+            WebGl2RenderingContext::STATIC_DRAW,
         );
-        context.vertex_attrib_pointer_with_i32(0, 3, WebGlRenderingContext::FLOAT, false, 0, 0);
+        context.vertex_attrib_pointer_with_i32(0, 3, WebGl2RenderingContext::FLOAT, false, 0, 0);
         context.enable_vertex_attrib_array(0);
 
         context.clear_color(0.0, 0.0, 0.0, 1.0);
-        context.clear(WebGlRenderingContext::COLOR_BUFFER_BIT);
+        context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
         let motti1 = Rc::new( RefCell::new( Motti{ program, context, canvas, count: 0, lastCountTime: 0.0, stopped: false } ) ); 
         let motti2 = motti1.clone();
 
@@ -111,7 +111,7 @@ impl Motti {
 
 
         self.context.draw_arrays(
-            WebGlRenderingContext::TRIANGLES,
+            WebGl2RenderingContext::TRIANGLES,
             0,
             6,
         );
@@ -163,7 +163,7 @@ pub fn start() -> Result<(),JsValue>{
 }
 
 fn compile_shader(
-    context: &WebGlRenderingContext,
+    context: &WebGl2RenderingContext,
     shader_type: u32,
     source: &str,
 ) -> Result<WebGlShader, String> {
@@ -174,7 +174,7 @@ fn compile_shader(
     context.compile_shader(&shader);
 
     if context
-        .get_shader_parameter(&shader, WebGlRenderingContext::COMPILE_STATUS)
+        .get_shader_parameter(&shader, WebGl2RenderingContext::COMPILE_STATUS)
         .as_bool()
         .unwrap_or(false)
     {
@@ -187,7 +187,7 @@ fn compile_shader(
 }
 
 fn link_program<'a, T: IntoIterator<Item = &'a WebGlShader>>(
-    context: &WebGlRenderingContext,
+    context: &WebGl2RenderingContext,
     shaders: T,
 ) -> Result<WebGlProgram, String> {
     let program = context
@@ -199,7 +199,7 @@ fn link_program<'a, T: IntoIterator<Item = &'a WebGlShader>>(
     context.link_program(&program);
 
     if context
-        .get_program_parameter(&program, WebGlRenderingContext::LINK_STATUS)
+        .get_program_parameter(&program, WebGl2RenderingContext::LINK_STATUS)
         .as_bool()
         .unwrap_or(false)
     {

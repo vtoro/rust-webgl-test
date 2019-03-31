@@ -1,4 +1,4 @@
-#version 100
+#version 300 es
 precision highp float;
 
 uniform vec3 iResolution;
@@ -6,7 +6,7 @@ uniform float iTime;
 const int max_steps = 64;
 const float max_depth = 200000000.0;
 const float min_distance = 0.01;
-const vec3 sun_dir = normalize(vec3( 20.0,40.0,-10.0 ));
+const vec3 sun_dir = vec3( 0.43643578,0.87287156,-0.21821789 );
 
 struct sdf {
     int type;
@@ -34,27 +34,14 @@ ray rayfwd( ray r, float by ) {
     return r;
 }
 
-const int worldsdfslength = 6;
-sdf worldsdfs(int i) {
-    if( i == 0 ) {
-        return sdf( 1, vec3( 0.0, 0.0, 0.0 ), vec3( 0.1, 0.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ) );
-    }
-    if( i == 1 ) {
-        return sdf( 101, vec3( -2.8, -2.0, -2.3 + sin(iTime*0.6) * 3.0 ), vec3( 2.6, 0.0, 0.0 ), vec3( 1.0, 1.0, 0.5 ) );
-    }
-    if( i == 2 ) {
-        return sdf( 100, vec3( 0.5 + sin( iTime * 0.7 ), 1.0, 0.0 ), vec3( 0.4, 0.0, 0.0 ), vec3( 0.5, 1.0, 0.5 ) );
-    }
-    if( i == 3 ) {
-        return sdf( 1, vec3(-3.0, 1.0*cos(iTime*0.8)*1.0, 1.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 0.0, 0.0, 1.0 ) );
-    }
-    if( i == 4 ) {
-        return sdf( 0, vec3(-5.0, .0,-3.0 ), vec3( 1.0, 0,0  ), vec3( 1.0, abs(sin( iTime * .6)), 1.0 ) );  
-    }
-    if( i == 5 ) {
-        return sdf( 2, vec3( 0.0,-3.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) );
-    }
-}
+sdf worldsdfs[6] = sdf[6](
+    sdf( 1, vec3( 0.0, 0.0, 0.0 ), vec3( 0.1, 0.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ) ),
+    sdf( 101, vec3( -2.8, -2.0, 0  ), vec3( 2.6, 0.0, 0.0 ), vec3( 1.0, 1.0, 0.5 ) ),
+    sdf( 100, vec3( 0.5, 1.0, 0.0 ), vec3( 0.4, 0.0, 0.0 ), vec3( 0.5, 1.0, 0.5 ) ),
+    sdf( 1, vec3(-3.0, 1.0, 1.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 0.0, 0.0, 1.0 ) ),
+    sdf( 0, vec3(-4.5, 2.0,3.0 ), vec3( 1.5, 0,0  ), vec3( 1.0, 0.0, 1.0 ) ),
+    sdf( 2, vec3( 0.0,-3.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) )
+);
 
 
 hit sdf_cube( vec3 ray_pos, vec3 cube_pos, float size, int itemId ) {
@@ -81,20 +68,17 @@ hit sdf_ground( vec3 ray_pos, int itemId ) {
 }
 
 hit hit_sdf( ray r, sdf s, int object_id ) {
-    if( s.type == 0 ) { 
-        return sdf_cube( r.position, s.position, s.features.x, object_id );
-    }
-    if( s.type == 1 ) { 
-        return sdf_circle( r.position, s.position, s.features.x, object_id );
-    }
-    if( s.type == 2 ) { 
-        return sdf_ground( r.position, object_id );
-    }
-    if( s.type == 100 ) { 
-        return sdf_cube( r.position, s.position, s.features.x, object_id );
-    }
-    if( s.type == 101 ) { 
-        return sdf_circle( r.position, s.position, s.features.x, object_id );
+    switch (s.type) {
+        case 0:
+            return sdf_cube( r.position, s.position, s.features.x, object_id );
+        case 1:
+            return sdf_circle( r.position, s.position, s.features.x, object_id );
+        case 2:
+            return sdf_ground( r.position, object_id );
+        case 100:
+            return sdf_cube( r.position, s.position, s.features.x, object_id );
+        case 101:
+            return sdf_circle( r.position, s.position, s.features.x, object_id );
     }
 }
 
@@ -109,10 +93,10 @@ hit closest( hit obj1, hit obj2 ) {
 }
 
 hit world( ray r ) {
-    hit h = hit_sdf( r, worldsdfs(r.ignore_object == 0 ? 1 : 0), 0 );
-    for( int i=1; i < worldsdfslength; i++ ) {
+    hit h = hit_sdf( r, worldsdfs[r.ignore_object == 0 ? 1 : 0], 0 );
+    for( int i=1; i < worldsdfs.length(); i++ ) {
         if( i == r.ignore_object ) continue;
-        hit n = hit_sdf( r, worldsdfs(i), i );
+        hit n = hit_sdf( r, worldsdfs[i], i );
         h = closest( h, n );
     }
     return h;
@@ -121,7 +105,7 @@ hit world( ray r ) {
 vec3 normal( hit h ) {
     vec3 position = h.hit_position;
     int objid = h.hit_object;
-    sdf obj = worldsdfs(h.hit_object);
+    sdf obj = worldsdfs[h.hit_object];
     return normalize(vec3(
         hit_sdf( ray( position+vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance - 
         hit_sdf( ray( position-vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance,
@@ -140,7 +124,7 @@ ray refraction( ray r, hit h ) {
 
 
 vec3 colorize( hit h ) {
-    sdf hitobj = worldsdfs(h.hit_object);
+    sdf hitobj = worldsdfs[h.hit_object];
     vec3 color = hitobj.color;
     if ( hitobj.type == 2 ) {
         bool col = mod(h.hit_position.x,4.0) <= 2.0 ^^ mod(h.hit_position.z,4.0) <= 2.0;
@@ -161,13 +145,13 @@ float sun_trace( hit h ) {
         if( r.length > max_depth ) return occlusion;
         hit c_obj = world( r );
         if( c_obj.distance < min_distance) {
-            sdf hit_object = worldsdfs( c_obj.hit_object );
+            sdf hit_object = worldsdfs[ c_obj.hit_object ];
             if( hit_object.type < 100 ) {
             	return 0.0;
             } else {
                 r = ray( r.position, r.direction, r.length, c_obj.hit_object );
                 vec3 c = colorize( c_obj );
-                occlusion = occlusion * ( 0.299*c.x + 0.587*c.y + 0.114*c.z );
+                occlusion = occlusion * sqrt( 0.299*c.x*c.x + 0.587*c.y*c.y + 0.114*c.z*c.z );
                 c_obj = world( r );
             }
         } 
@@ -199,7 +183,7 @@ vec4 trace( ray r ) {
             }
             brightness = shadow * min( lambertian*0.8  + specular*0.8, 1.0);
                 
-            if( worldsdfs(c_obj.hit_object).type >= 100 ) {
+            if( worldsdfs[c_obj.hit_object].type >= 100 ) {
                 r = refraction( r, c_obj );
                	refractionTint = refractionTint * colorize( c_obj ).xyz * brightness;
                 c_obj = world(r);
@@ -223,6 +207,7 @@ vec3 viewdirection( vec2 screenpos, vec3 camerapos, vec3 lookingat, vec3 up )
             + screenpos.y * orthoup * 0.2);
 }
 
+out vec4 fragColor;
 void main()
 {
     vec2 fragPos = (gl_FragCoord.xy / iResolution.xy - 0.5);//fragCoord.xy / vec2(1000.0,1000.0)) -0.5;
@@ -231,5 +216,5 @@ void main()
     vec3 lookat = vec3(0, 0, 0);
     vec3 viewdir = viewdirection( fragPos, camera,lookat, vec3(0.0,1.0,0.0) );
     ray pixelray = ray( camera, viewdir, 0.0, -1);
-    gl_FragColor = trace( pixelray );
+    fragColor = trace( pixelray );
 }
