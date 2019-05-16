@@ -1,12 +1,8 @@
+#version 300 es
 precision mediump float;
 
 uniform vec3 iResolution;
 uniform float iTime;
-
-
-
-precision highp float;
-
 
 const int max_steps = 64;
 const float max_depth = 200000000.0;
@@ -44,26 +40,26 @@ const sdf worldsdfs[6] = sdf[6](
     sdf( 101, vec3( -2.8, -2.0, -2.3 ), vec3( 2.6, 0.0, 0.0 ), vec3( 1.0, 1.0, 0.5 ) ),
     sdf( 100, vec3( 0.5, 1.0, 0.0 ), vec3( 0.4, 0.0, 0.0 ), vec3( 0.5, 1.0, 0.5 ) ),
     sdf( 1, vec3(-3.0, 1.0, 1.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 0.0, 0.0, 1.0 ) ),
-    sdf( 0, vec3(2.0, 1.0,-3.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) ),    
+    sdf( 0, vec3(2.0, 1.0,-3.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) ),
     sdf( 2, vec3( 0.0,-3.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) )
 );
 
 
 hit sdf_cube( vec3 ray_pos, vec3 cube_pos, float size, int itemId ) {
-    return hit( 
+    return hit(
         ray_pos,
-        itemId, 
-        max( 
-            abs(ray_pos.x - cube_pos.x) - size, 
-            max( 
-                abs(ray_pos.y - cube_pos.y) - size, 
+        itemId,
+        max(
+            abs(ray_pos.x - cube_pos.x) - size,
+            max(
+                abs(ray_pos.y - cube_pos.y) - size,
                 abs(ray_pos.z - cube_pos.z) - size
-            ) 
+            )
         )
     );
 }
 
-hit sdf_circle(vec3 ray_pos, vec3 cube_pos, float size, int itemId) 
+hit sdf_circle(vec3 ray_pos, vec3 cube_pos, float size, int itemId)
 {
     return hit( ray_pos, itemId, length( cube_pos - ray_pos) - size );
 }
@@ -74,15 +70,15 @@ hit sdf_ground( vec3 ray_pos, int itemId ) {
 
 hit hit_sdf( ray r, sdf s, int object_id ) {
     switch (s.type) {
-        case 0: 
+        case 0:
             return sdf_cube( r.position, s.position, s.features.x, object_id );
-        case 1: 
+        case 1:
             return sdf_circle( r.position, s.position, s.features.x, object_id );
-        case 2: 
+        case 2:
             return sdf_ground( r.position, object_id );
-        case 100: 
+        case 100:
             return sdf_cube( r.position, s.position, s.features.x, object_id );
-        case 101: 
+        case 101:
             return sdf_circle( r.position, s.position, s.features.x, object_id );
     }
 }
@@ -94,7 +90,6 @@ hit closest( hit obj1, hit obj2 ) {
     } else {
         return obj1;
     }
-
 }
 
 hit world( ray r ) {
@@ -112,11 +107,11 @@ vec3 normal( hit h ) {
     int objid = h.hit_object;
     sdf obj = worldsdfs[h.hit_object];
     return normalize(vec3(
-        hit_sdf( ray( position+vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance - 
+        hit_sdf( ray( position+vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance -
         hit_sdf( ray( position-vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance,
-        hit_sdf( ray( position+vec3(0.0,0.001,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance - 
+        hit_sdf( ray( position+vec3(0.0,0.001,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance -
         hit_sdf( ray( position-vec3(0.0,0.001,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance,
-        hit_sdf( ray( position+vec3(0.0,0.0,0.001), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance - 
+        hit_sdf( ray( position+vec3(0.0,0.0,0.001), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance -
         hit_sdf( ray( position-vec3(0.0,0.0,0.001), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance
     ));
 }
@@ -151,7 +146,7 @@ bool sun_trace( hit h ) {
         hit c_obj = world( r );
         if( c_obj.distance < min_distance) {
             return true;
-        } 
+        }
         r = rayfwd( r, max(c_obj.distance,min_distance) );
     }
     return false;
@@ -186,11 +181,11 @@ vec4 trace( ray r ) {
             }
             if( worldsdfs[c_obj.hit_object].type >= 100 ) {
                 r = refraction( r, c_obj );
-               	refractionTint = refractionTint * colorize( c_obj ).xyz * brightness;
+                   refractionTint = refractionTint * colorize( c_obj ).xyz * brightness;
                 c_obj = world(r);
             } else {
-    	        vec3 color = colorize( c_obj ).xyz * brightness * refractionTint;
-	            return vec4( color.xyz, 1);
+                vec3 color = colorize( c_obj ).xyz * brightness * refractionTint;
+                return vec4( color.xyz, 1);
             }
         }
         r = rayfwd( r, c_obj.distance );
@@ -198,13 +193,13 @@ vec4 trace( ray r ) {
     return vec4(0,0,0.2,1);
 }
 
-vec3 viewdirection( vec2 screenpos, vec3 camerapos, vec3 lookingat, vec3 up ) 
+vec3 viewdirection( vec2 screenpos, vec3 camerapos, vec3 lookingat, vec3 up )
 {
     vec3 forward = normalize( lookingat - camerapos );
     vec3 left = normalize( cross( forward, up ) );
     vec3 orthoup = cross( left, forward );
-    return normalize(forward * 0.2 
-            + screenpos.x * left * 0.2 
+    return normalize(forward * 0.2
+            + screenpos.x * left * 0.2
             + screenpos.y * orthoup * 0.2);
 }
 

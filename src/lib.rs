@@ -49,7 +49,7 @@ impl Motti {
         let frag_shader = compile_shader(
             &context,
             WebGl2RenderingContext::FRAGMENT_SHADER,
-            include_str!("color.frag.glsl"),
+            include_str!("color.frag"),
         )?;
         let program = link_program(&context, [vert_shader, frag_shader].iter())?;
         context.use_program(Some(&program));
