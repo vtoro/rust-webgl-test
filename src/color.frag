@@ -35,12 +35,12 @@ ray rayfwd( ray r, float by ) {
     return r;
 }
 
-const sdf worldsdfs[6] = sdf[6](
+sdf worldsdfs[6] = sdf[6](
     sdf( 1, vec3( 0.0, 0.0, 0.0 ), vec3( 0.1, 0.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ) ),
-    sdf( 101, vec3( -2.8, -2.0, -2.3 ), vec3( 2.6, 0.0, 0.0 ), vec3( 1.0, 1.0, 0.5 ) ),
+    sdf( 1, vec3( -2.8, -2.0, -2.3 ), vec3( 2.6, 0.0, 0.0 ), vec3( 1.0, 1.0, 0.5 ) ),
     sdf( 100, vec3( 0.5, 1.0, 0.0 ), vec3( 0.4, 0.0, 0.0 ), vec3( 0.5, 1.0, 0.5 ) ),
     sdf( 1, vec3(-3.0, 1.0, 1.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 0.0, 0.0, 1.0 ) ),
-    sdf( 0, vec3(2.0, 1.0,-3.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) ),
+    sdf( 100, vec3(2.0, 1.0,-3.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) ),
     sdf( 2, vec3( 0.0,-3.0, 0.0 ), vec3( 1.0, 0.0, 0.0 ), vec3( 1.0, 0.0, 1.0 ) )
 );
 
@@ -92,9 +92,10 @@ hit closest( hit obj1, hit obj2 ) {
     }
 }
 
-hit world( ray r ) {
+hit world( ray r, bool ignore_ground ) {
     hit h = hit_sdf( r, worldsdfs[r.ignore_object == 0 ? 1 : 0], 0 );
     for( int i=1; i < worldsdfs.length(); i++ ) {
+        if( ignore_ground && worldsdfs[i].type == 2 ) continue;
         if( i == r.ignore_object ) continue;
         hit n = hit_sdf( r, worldsdfs[i], i );
         h = closest( h, n );
@@ -108,11 +109,14 @@ vec3 normal( hit h ) {
     sdf obj = worldsdfs[h.hit_object];
     return normalize(vec3(
         hit_sdf( ray( position+vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance -
-        hit_sdf( ray( position-vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance,
+        h.distance,
+//        hit_sdf( ray( position-vec3(0.001,0.0,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance,
         hit_sdf( ray( position+vec3(0.0,0.001,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance -
-        hit_sdf( ray( position-vec3(0.0,0.001,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance,
+        h.distance,
+//        hit_sdf( ray( position-vec3(0.0,0.001,0.0), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance,
         hit_sdf( ray( position+vec3(0.0,0.0,0.001), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance -
-        hit_sdf( ray( position-vec3(0.0,0.0,0.001), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance
+        h.distance
+    //    hit_sdf( ray( position-vec3(0.0,0.0,0.001), vec3(.0,.0,.0), 0.0, -1 ), obj, objid ).distance
     ));
 }
 
@@ -139,11 +143,11 @@ vec3 colorize( hit h ) {
 }
 
 bool sun_trace( hit h ) {
-    ray r = ray( sun_dir, h.hit_position, 0.0, h.hit_object );
-    r = rayfwd( r, min_distance * 4.0 );
+    ray r = ray( h.hit_position, sun_dir, 0.0, h.hit_object );
+    r = rayfwd( r, min_distance * 40.0 );
     for( int i=0; i < max_steps; i++) {
         if( r.length > max_depth ) return false;
-        hit c_obj = world( r );
+        hit c_obj = world( r, true );
         if( c_obj.distance < min_distance) {
             return true;
         }
@@ -157,10 +161,10 @@ vec4 trace( ray r ) {
     vec3 refractionTint = vec3(1,1,1);
     for( int i=0; i < max_steps; i++) {
         if( r.length > max_depth ) return vec4(0,0.2,0,1);
-        hit c_obj = world( r );
+        hit c_obj = world( r, false );
         if( c_obj.distance < min_distance || c_obj.distance < min_distance*10.0 && i > max_steps - 2 ) {
             float brightness;
-            bool shadow = false;//sun_trace( c_obj );
+            bool shadow = sun_trace( c_obj );
             if( !shadow ) {
                 vec3 nrml = normal( c_obj );
 
@@ -182,7 +186,7 @@ vec4 trace( ray r ) {
             if( worldsdfs[c_obj.hit_object].type >= 100 ) {
                 r = refraction( r, c_obj );
                    refractionTint = refractionTint * colorize( c_obj ).xyz * brightness;
-                c_obj = world(r);
+                c_obj = world(r, false);
             } else {
                 vec3 color = colorize( c_obj ).xyz * brightness * refractionTint;
                 return vec4( color.xyz, 1);
@@ -208,6 +212,9 @@ void main()
 {
     vec2 fragPos = (gl_FragCoord.xy / iResolution.xy - 0.5);//fragCoord.xy / vec2(1000.0,1000.0)) -0.5;
     //fragColor = vec4(1.0, fragPos.x, sin(iTime), 1.0);
+    worldsdfs[2].position.z = 0.4 + cos(iTime) * 3.0;
+    worldsdfs[3].position.y = sin( iTime );
+    worldsdfs[4].position.x = sin( iTime ) * 2.0;
     vec3 camera = vec3( sin(iTime)*3.0+4.0, sin(iTime)*4.0+4.0, cos(iTime)*1.0 );
     vec3 lookat = vec3(0, 0, 0);
     vec3 viewdir = viewdirection( fragPos, camera,lookat, vec3(0.0,1.0,0.0) );

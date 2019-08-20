@@ -74,7 +74,7 @@ impl Motti {
 
         context.clear_color(0.0, 0.0, 0.0, 1.0);
         context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT);
-        let motti1 = Rc::new( RefCell::new( Motti{ program, context, canvas, count: 0, lastCountTime: 0.0, stopped: false } ) ); 
+        let motti1 = Rc::new( RefCell::new( Motti{ program, context, canvas, count: 0, lastCountTime: 0.0, stopped: false } ) );
         let motti2 = motti1.clone();
 
         let f = Rc::new(RefCell::new(None));
@@ -115,7 +115,7 @@ impl Motti {
             0,
             6,
         );
-        Ok(())        
+        Ok(())
     }
 
     pub fn stop( &mut self ) -> () {
